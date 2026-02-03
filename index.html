@@ -1417,12 +1417,13 @@
         }
 
         // Checkout
-        checkoutBtn.addEventListener('click', () => {
+        checkoutBtn.addEventListener('click', async () => {
             if (cart.length === 0) {
                 alert('Your cart is empty!');
                 return;
             }
 
+            // Build order details
             let orderDetails = 'GANG SHEET ORDER\n\n';
             orderDetails += `Total Items: ${cart.length}\n\n`;
             
@@ -1434,14 +1435,54 @@
                 orderDetails += `  Price: ₱${item.subtotal.toLocaleString()}\n\n`;
             });
             
-            orderDetails += `TOTAL: ₱${cartTotal.toLocaleString()}\n\n`;
-            orderDetails += `We'll contact you at gwinthings@gmail.com to confirm your order and arrange payment & delivery.`;
+            orderDetails += `TOTAL: ₱${cartTotal.toLocaleString()}`;
 
-            alert(orderDetails);
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('order_type', 'Gang Sheet Order');
+            formData.append('total_items', cart.length);
+            formData.append('total_price', `₱${cartTotal.toLocaleString()}`);
+            formData.append('order_details', orderDetails);
             
-            // Clear cart after checkout
-            cart = [];
-            updateCart();
+            // Add each item's details
+            cart.forEach((item, index) => {
+                formData.append(`item_${index + 1}_size`, item.size);
+                formData.append(`item_${index + 1}_quantity`, item.quantity);
+                formData.append(`item_${index + 1}_price`, `₱${item.subtotal.toLocaleString()}`);
+                formData.append(`item_${index + 1}_file`, item.fileName);
+            });
+
+            // Disable button and show loading
+            checkoutBtn.disabled = true;
+            checkoutBtn.textContent = 'Sending Order...';
+
+            try {
+                // Send to Formspree
+                const response = await fetch('https://formspree.io/f/mpqlnywo', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    alert('✅ Order sent successfully!\n\nWe received your gang sheet order and will contact you shortly at gwinthings@gmail.com to arrange payment and delivery.\n\nPlease send your design files to gwinthings@gmail.com and mention your order details.');
+                    
+                    // Clear cart after successful checkout
+                    cart = [];
+                    updateCart();
+                } else {
+                    throw new Error('Failed to send order');
+                }
+            } catch (error) {
+                alert('❌ There was an error sending your order.\n\nPlease contact us directly at:\n📧 gwinthings@gmail.com\n📱 0917 556 5437\n\nOr try again in a moment.');
+                console.error('Error:', error);
+            } finally {
+                // Re-enable button
+                checkoutBtn.disabled = false;
+                checkoutBtn.textContent = 'Proceed to Checkout';
+            }
         });
 
         // Upload functionality
@@ -1523,26 +1564,91 @@
             submitBtn.disabled = uploadedFiles.length === 0;
         }
 
-        submitBtn.addEventListener('click', () => {
+        submitBtn.addEventListener('click', async () => {
             if (uploadedFiles.length > 0) {
-                alert(`Thank you! We received ${uploadedFiles.length} file(s).\n\nWe'll review your files and contact you at gwinthings@gmail.com with a quote and timeline.`);
-                uploadedFiles = [];
-                fileList.innerHTML = '';
-                fileInput.value = '';
-                updateSubmitButton();
+                const formData = new FormData();
+                formData.append('form_type', 'General File Upload');
+                formData.append('file_count', uploadedFiles.length);
+                
+                let fileNames = '';
+                uploadedFiles.forEach((file, index) => {
+                    fileNames += `${index + 1}. ${file.name} (${formatFileSize(file.size)})\n`;
+                });
+                formData.append('uploaded_files', fileNames);
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Sending...';
+
+                try {
+                    const response = await fetch('https://formspree.io/f/mpqlnywo', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (response.ok) {
+                        alert(`✅ Thank you! We received notification of ${uploadedFiles.length} file(s).\n\nPlease send your actual files to gwinthings@gmail.com with a note about what you'd like printed.\n\nWe'll get back to you with a quote and timeline.`);
+                        uploadedFiles = [];
+                        fileList.innerHTML = '';
+                        fileInput.value = '';
+                        updateSubmitButton();
+                    } else {
+                        throw new Error('Failed to send notification');
+                    }
+                } catch (error) {
+                    alert('❌ There was an error.\n\nPlease send your files directly to:\n📧 gwinthings@gmail.com\n📱 0917 556 5437');
+                    console.error('Error:', error);
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit Files';
+                }
             }
         });
 
         // Contact form functionality
         const contactForm = document.getElementById('contactForm');
-        contactForm.addEventListener('submit', (e) => {
+        contactForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
             const name = document.getElementById('name').value;
             const email = document.getElementById('email').value;
             const message = document.getElementById('message').value;
             
-            alert(`Thank you, ${name}! Your message has been received.\n\nWe'll get back to you at ${email} as soon as possible.`);
-            contactForm.reset();
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('email', email);
+            formData.append('message', message);
+            formData.append('form_type', 'Contact Form');
+
+            // Get the submit button
+            const submitBtn = contactForm.querySelector('.form-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Sending...';
+
+            try {
+                const response = await fetch('https://formspree.io/f/mpqlnywo', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    alert(`✅ Thank you, ${name}!\n\nYour message has been sent successfully.\n\nWe'll get back to you at ${email} as soon as possible.`);
+                    contactForm.reset();
+                } else {
+                    throw new Error('Failed to send message');
+                }
+            } catch (error) {
+                alert('❌ There was an error sending your message.\n\nPlease contact us directly at:\n📧 gwinthings@gmail.com\n📱 0917 556 5437');
+                console.error('Error:', error);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Send Message';
+            }
         });
 
         // Smooth scrolling for navigation links
